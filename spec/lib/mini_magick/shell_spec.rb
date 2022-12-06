@@ -1,76 +1,78 @@
-require "spec_helper"
+# frozen_string_literal: true
+
+require 'spec_helper'
 
 RSpec.describe MiniMagick::Shell do
   subject { described_class.new }
 
-  describe "#run" do
-    it "calls #execute with the command" do
+  describe '#run' do
+    it 'calls #execute with the command' do
       expect(subject).to receive(:execute).and_call_original
       subject.run(%W[identify #{image_path}])
     end
 
-    it "returns stdout, stderr and status" do
-      allow(subject).to receive(:execute).and_return(["stdout", "stderr", 0])
-      output = subject.run(%W[foo])
-      expect(output).to eq ["stdout", "stderr", 0]
+    it 'returns stdout, stderr and status' do
+      allow(subject).to receive(:execute).and_return(['stdout', 'stderr', 0])
+      output = subject.run(%w[foo])
+      expect(output).to eq ['stdout', 'stderr', 0]
     end
 
-    it "uses stderr and status for error messages" do
-      allow(subject).to receive(:execute).and_return(["", "stderr", 1])
+    it 'uses stderr and status for error messages' do
+      allow(subject).to receive(:execute).and_return(['', 'stderr', 1])
 
       expected_msg = "`foo` failed with status: 1 and error:\nstderr"
 
-      expect { subject.run(%W[foo]) }
+      expect { subject.run(%w[foo]) }
         .to raise_error(MiniMagick::Error, expected_msg)
     end
 
     it "raises an error when executable wasn't found" do
-      allow(subject).to receive(:execute).and_return(["", "not found", 127])
-      expect { subject.run(%W[foo]) }
+      allow(subject).to receive(:execute).and_return(['', 'not found', 127])
+      expect { subject.run(%w[foo]) }
         .to raise_error(MiniMagick::Error, /not found/)
     end
 
-    it "raises errors only in whiny mode" do
-      allow(subject).to receive(:execute).and_return(["stdout", "", 127])
-      expect { subject.run(%W[foo], whiny: false) }.not_to raise_error
+    it 'raises errors only in whiny mode' do
+      allow(subject).to receive(:execute).and_return(['stdout', '', 127])
+      expect { subject.run(%w[foo], whiny: false) }.not_to raise_error
     end
 
-    it "prints to stderr output to $stderr in non-whiny mode" do
-      allow(subject).to receive(:execute).and_return(["", "stderr", 1])
-      expect { subject.run(%W[foo], whiny: false) }.to output("stderr").to_stderr
+    it 'prints to stderr output to $stderr in non-whiny mode' do
+      allow(subject).to receive(:execute).and_return(['', 'stderr', 1])
+      expect { subject.run(%w[foo], whiny: false) }.to output('stderr').to_stderr
     end
   end
 
-  describe "#execute" do
+  describe '#execute' do
     SHELL_APIS.each do |shell_api|
       context "with #{shell_api}", shell_api: shell_api do
-        it "executes the command in the shell" do
+        it 'executes the command in the shell' do
           stdout, stderr, status = subject.execute(%W[identify #{image_path(:gif)}])
 
-          expect(stdout).to match("GIF")
-          expect(stderr).to eq ""
+          expect(stdout).to match('GIF')
+          expect(stderr).to eq ''
           expect(status).to eq 0
 
-          stdout, stderr, status = subject.execute(%W[identify foo])
+          stdout, stderr, status = subject.execute(%w[identify foo])
 
-          expect(stdout).to eq ""
-          expect(stderr).to match("unable to open image")
+          expect(stdout).to eq ''
+          expect(stderr).to match('unable to open image')
           expect(status).to eq 1
         end
 
-        it "handles larger output" do
+        it 'handles larger output' do
           Timeout.timeout(1) do
-            stdout, _, _ = subject.execute(%W[convert #{image_path(:gif)} -])
-            expect(stdout).to match("GIF")
+            stdout, = subject.execute(%W[convert #{image_path(:gif)} -])
+            expect(stdout).to match('GIF')
           end
         end
 
         it "returns an appropriate response when command wasn't found" do
-          stdout, stderr, code = subject.execute(%W[unexisting command])
+          stdout, stderr, code = subject.execute(%w[unexisting command])
           expect(code).to eq 127
         end
 
-        it "logs the command and execution time in debug mode" do
+        it 'logs the command and execution time in debug mode' do
           MiniMagick.logger = Logger.new(stream = StringIO.new)
           MiniMagick.logger.level = Logger::DEBUG
           subject.execute(%W[identify #{image_path(:gif)}])
@@ -78,14 +80,14 @@ RSpec.describe MiniMagick::Shell do
           expect(stream.read).to match /\[\d+.\d+s\] identify #{image_path(:gif)}/
         end
 
-        it "terminate long running commands if MiniMagick.timeout is set" do
+        it 'terminate long running commands if MiniMagick.timeout is set' do
           MiniMagick.timeout = 0.1
           expect { subject.execute(%w[sleep 1]) }.to raise_error(Timeout::Error)
           MiniMagick.timeout = nil
         end
 
         it "doesn't break on spaces" do
-          stdout, * = subject.execute(["identify", "-format", "%w %h", image_path])
+          stdout, * = subject.execute(['identify', '-format', '%w %h', image_path])
           expect(stdout).to match(/\d+ \d+/)
         end
       end

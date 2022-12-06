@@ -1,9 +1,10 @@
-require "tempfile"
+# frozen_string_literal: true
+
+require 'tempfile'
 
 module MiniMagick
   # @private
   module Utilities
-
     module_function
 
     ##
@@ -24,12 +25,11 @@ module MiniMagick
     end
 
     def tempfile(extension)
-      Tempfile.new(["mini_magick", extension], MiniMagick.tmpdir).tap do |tempfile|
+      Tempfile.new(['mini_magick', extension], MiniMagick.tmpdir).tap do |tempfile|
         tempfile.binmode
         yield tempfile if block_given?
         tempfile.close
       end
     end
-
   end
 end

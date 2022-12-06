@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'tempfile'
 require 'stringio'
 require 'pathname'
@@ -9,7 +11,6 @@ require 'mini_magick/utilities'
 
 module MiniMagick
   class Image
-
     ##
     # This is the primary loading method used by all of the other class
     # methods.
@@ -27,9 +28,7 @@ module MiniMagick
     # @return [MiniMagick::Image]
     #
     def self.read(stream, ext = nil)
-      if stream.is_a?(String)
-        stream = StringIO.new(stream)
-      end
+      stream = StringIO.new(stream) if stream.is_a?(String)
 
       create(ext) { |file| IO.copy_stream(stream, file) }
     end
@@ -51,7 +50,7 @@ module MiniMagick
     #
     def self.import_pixels(blob, columns, rows, depth, map, format = 'png')
       # Create an image object with the raw pixel data string:
-      create(".dat", false) { |f| f.write(blob) }.tap do |image|
+      create('.dat', false) { |f| f.write(blob) }.tap do |image|
         output_path = image.path.sub(/\.\w+$/, ".#{format}")
         # Use ImageMagick to convert the raw data file to an image file of the
         # desired format:
@@ -80,7 +79,10 @@ module MiniMagick
     # @return [MiniMagick::Image] The loaded image
     #
     def self.open(path_or_url, ext = nil, options = {})
-      options, ext = ext, nil if ext.is_a?(Hash)
+      if ext.is_a?(Hash)
+        options = ext
+        ext = nil
+      end
 
       # Don't use Kernel#open, but reuse its logic
       openable =
@@ -95,12 +97,12 @@ module MiniMagick
           Pathname(path_or_url)
         end
 
-      if openable.is_a?(URI::Generic)
-        ext ||= File.extname(openable.path)
-      else
-        ext ||= File.extname(openable.to_s)
-      end
-      ext.sub!(/:.*/, '') # hack for filenames or URLs that include a colon
+      ext ||= if openable.is_a?(URI::Generic)
+                File.extname(openable.path)
+              else
+                File.extname(openable.to_s)
+              end
+      ext.sub!(/:.*/, '') # HACK: for filenames or URLs that include a colon
 
       if openable.is_a?(URI::Generic)
         openable.open(options) { |file| read(file, ext) }
@@ -217,8 +219,8 @@ module MiniMagick
     #
     def validate!
       identify
-    rescue MiniMagick::Error => error
-      raise MiniMagick::Invalid, error.message
+    rescue MiniMagick::Error => e
+      raise MiniMagick::Invalid, e.message
     end
 
     ##
@@ -226,7 +228,7 @@ module MiniMagick
     #
     # @return [String]
     #
-    attribute :type, "format"
+    attribute :type, 'format'
     ##
     # @return [String]
     #
@@ -365,8 +367,9 @@ module MiniMagick
     # @param map [String] A code for the mapping of the pixel data. Must be either
     #   'RGB' or 'RGBA'. Default to 'RGB'
     # @return [Array] Matrix of each color of each pixel
-    def get_pixels(map="RGB")
-      raise ArgumentError, "Invalid map value" unless ["RGB", "RGBA"].include?(map)
+    def get_pixels(map = 'RGB')
+      raise ArgumentError, 'Invalid map value' unless %w[RGB RGBA].include?(map)
+
       convert = MiniMagick::Tool::Convert.new
       convert << path
       convert.depth(8)
@@ -376,7 +379,7 @@ module MiniMagick
       shell = MiniMagick::Shell.new
       output, * = shell.run(convert.command)
 
-      pixels_array = output.unpack("C*")
+      pixels_array = output.unpack('C*')
       pixels = pixels_array.each_slice(map.length).each_slice(width).to_a
 
       # deallocate large intermediary objects
@@ -388,12 +391,12 @@ module MiniMagick
 
     ##
     # This is used to create image from pixels. This might be required if you
-    # create pixels for some image processing reasons and you want to form 
+    # create pixels for some image processing reasons and you want to form
     # image from those pixels.
     #
     # *DANGER*: This operation can be very expensive. Please try to use with
-    # caution. 
-    # 
+    # caution.
+    #
     # @example
     #   # It is given in readme.md file
     ##
@@ -430,7 +433,7 @@ module MiniMagick
     #   if you want to add something.
     # @return [self]
     #
-    def format(format, page = 0, read_opts={})
+    def format(format, page = 0, read_opts = {})
       if @tempfile
         new_tempfile = MiniMagick::Utilities.tempfile(".#{format}")
         new_path = new_tempfile.path
@@ -495,7 +498,7 @@ module MiniMagick
       end
     end
 
-    def respond_to_missing?(method_name, include_private = false)
+    def respond_to_missing?(method_name, _include_private = false)
       MiniMagick::Tool::Mogrify.option_methods.include?(method_name.to_s)
     end
 
@@ -519,7 +522,7 @@ module MiniMagick
           FileUtils.copy_file path, output_to unless path == output_to.to_s
         end
       else
-        IO.copy_stream File.open(path, "rb"), output_to
+        IO.copy_stream File.open(path, 'rb'), output_to
       end
     end
 
@@ -565,7 +568,9 @@ module MiniMagick
     #
     def destroy!
       if @tempfile
-        FileUtils.rm_f @tempfile.path.sub(/mpc$/, "cache") if @tempfile.path.end_with?(".mpc")
+        if @tempfile.path.end_with?('.mpc')
+          FileUtils.rm_f @tempfile.path.sub(/mpc$/, 'cache')
+        end
         @tempfile.unlink
       end
     end
