@@ -1,5 +1,7 @@
-require "timeout"
-require "benchmark"
+# frozen_string_literal: true
+
+require 'timeout'
+require 'benchmark'
 
 module MiniMagick
   ##
@@ -9,12 +11,11 @@ module MiniMagick
   # @private
   #
   class Shell
-
     def run(command, options = {})
       stdout, stderr, status = execute(command, stdin: options[:stdin])
 
       if status != 0 && options.fetch(:whiny, MiniMagick.whiny)
-        fail MiniMagick::Error, "`#{command.join(" ")}` failed with status: #{status} and error:\n#{stderr}"
+        raise MiniMagick::Error, "`#{command.join(' ')}` failed with status: #{status} and error:\n#{stderr}"
       end
 
       $stderr.print(stderr) unless options[:stderr] == false
@@ -24,19 +25,19 @@ module MiniMagick
 
     def execute(command, options = {})
       stdout, stderr, status =
-        log(command.join(" ")) do
-          send("execute_#{MiniMagick.shell_api.tr("-", "_")}", command, options)
+        log(command.join(' ')) do
+          send("execute_#{MiniMagick.shell_api.tr('-', '_')}", command, options)
         end
 
       [stdout, stderr, status.exitstatus]
     rescue Errno::ENOENT, IOError
-      ["", "executable not found: \"#{command.first}\"", 127]
+      ['', "executable not found: \"#{command.first}\"", 127]
     end
 
     private
 
     def execute_open3(command, options = {})
-      require "open3"
+      require 'open3'
 
       # We would ideally use Open3.capture3, but it wouldn't allow us to
       # terminate the command after timing out.
@@ -51,8 +52,16 @@ module MiniMagick
         in_w.close
 
         unless thread.join(MiniMagick.timeout)
-          Process.kill("TERM", thread.pid) rescue nil
-          Process.waitpid(thread.pid)      rescue nil
+          begin
+            Process.kill('TERM', thread.pid)
+          rescue StandardError
+            nil
+          end
+          begin
+            Process.waitpid(thread.pid)
+          rescue StandardError
+            nil
+          end
           raise Timeout::Error, "MiniMagick command timed out: #{command}"
         end
 
@@ -61,7 +70,7 @@ module MiniMagick
     end
 
     def execute_posix_spawn(command, options = {})
-      require "posix-spawn"
+      require 'posix-spawn'
       child = POSIX::Spawn::Child.new(*command, input: options[:stdin].to_s, timeout: MiniMagick.timeout)
       [child.out, child.err, child.status]
     rescue POSIX::Spawn::TimeoutExceeded
@@ -71,9 +80,8 @@ module MiniMagick
     def log(command, &block)
       value = nil
       duration = Benchmark.realtime { value = block.call }
-      MiniMagick.logger.debug "[%.2fs] %s" % [duration, command]
+      MiniMagick.logger.debug format('[%.2fs] %s', duration, command)
       value
     end
-
   end
 end
