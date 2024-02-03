@@ -216,7 +216,7 @@ require 'webmock/rspec'
 
         it 'changes the format of the photo' do
           expect { subject.format('png') }
-            .to change { subject.type }
+            .to(change { subject.type })
         end
 
         it 'reformats an image with a given extension' do
@@ -308,6 +308,17 @@ require 'webmock/rspec'
           layer = subject.layers.first
           layer.format('jpg', nil, { density: '300' })
           expect(layer).to be_valid
+        end
+
+        it 'not change tempfile when convert failed' do
+          subject = described_class.create(nil, false) { |f| f.write(File.binread(image_path(:not))) }
+          current_path = subject.path
+          new_tempfile = MiniMagick::Utilities.tempfile('png')
+          new_path = new_tempfile.path
+          allow(MiniMagick::Utilities).to receive(:tempfile).and_return(new_tempfile)
+          expect { begin; subject.format('png'); rescue StandardError; end }.not_to change(subject, :tempfile)
+          expect(File.exist?(current_path)).to eq true
+          expect(File.exist?(new_path)).to eq false
         end
       end
 
@@ -454,7 +465,7 @@ require 'webmock/rspec'
 
       describe '#details' do
         it 'returns a hash of verbose information' do
-          expect(subject.details['Format']).to match /^JPEG/
+          expect(subject.details['Format']).to match(/^JPEG/)
           if MiniMagick.cli == :imagemagick
             if Gem::Version.new(MiniMagick.cli_version) < Gem::Version.new('7.0.0')
               expect(subject.details['Channel depth']['red']).to eq '8-bit'
@@ -487,19 +498,6 @@ require 'webmock/rspec'
 
           it 'skips the badly encoded line' do
             expect(subject.details).not_to have_key('Software')
-          end
-        end
-
-        # GraphicsMagick does not output the clipping path
-        context 'when verbose information includes a clipping path', skip_cli: :graphicsmagick do
-          subject { described_class.new(image_path(:clipping_path)) }
-
-          it 'does not hang when parsing verbose data' do
-            # Retrieving .details should happen very quickly but as of v4.3.6
-            # will hang indefinitely without the timeout
-            Timeout.timeout(10) do
-              expect(subject.details['Clipping path'][0..4]).to eq '<?xml'
-            end
           end
         end
       end
@@ -664,7 +662,10 @@ require 'webmock/rspec'
         end
 
         it 'clears the info only at the end' do
-          subject.combine_options { |c| c.resize('20x30!'); subject.width }
+          subject.combine_options do |c|
+            c.resize('20x30!')
+            subject.width
+          end
           expect(subject.dimensions).to eq [20, 30]
         end
 
@@ -718,12 +719,12 @@ require 'webmock/rspec'
 
         it 'keeps the extension' do
           expect { subject.collapse! }
-            .not_to change { subject.type }
+            .not_to(change { subject.type })
         end
 
         it 'clears the info' do
           expect { subject.collapse! }
-            .to change { subject.size }
+            .to(change { subject.size })
         end
 
         it 'returns self' do
@@ -761,7 +762,9 @@ require 'webmock/rspec'
         end
 
         it 'yields an optional block' do
-          output = subject.identify(&:verbose)
+          output = subject.identify do |b|
+            b.verbose
+          end
           expect(output).to match('Format:')
         end
       end

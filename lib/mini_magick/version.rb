@@ -10,7 +10,7 @@ module MiniMagick
 
   module VERSION
     MAJOR = 4
-    MINOR = 11
+    MINOR = 12
     TINY  = 0
     PRE   = nil
 
